@@ -50,6 +50,9 @@
     <string name="main_usage_text">Floating ball: tap to run the current action; long-press to open the arc menu; drag to move.</string>
     <string name="main_usage_overlay_permission_required">Tap the button above to grant the overlay permission first.</string>
     <string name="main_hint_media_projection">A system permission dialog appears on each start</string>
+    <string name="main_hint_root_ready">Root ready: no permission dialog</string>
+    <string name="main_hint_root_not_available">Root not available. Unlock the bootloader and install Magisk / KernelSU first.</string>
+    <string name="main_snack_root_unavailable">Root is not available. Make sure the device is rooted (Magisk / KernelSU) and grant root permission.</string>
     <string name="main_hint_shizuku_ready">Shizuku ready: no permission dialog</string>
     <string name="main_hint_shizuku_not_granted">Shizuku installed but not granted; will request on start</string>
     <string name="main_hint_shizuku_not_running">Please start the Shizuku app first</string>
@@ -71,6 +74,9 @@
     <string name="main_status_shizuku_not_running">Service not running</string>
     <string name="main_status_shizuku_not_installed">Not installed</string>
     <string name="main_status_shizuku_not_paired">Not paired (no shell privilege)</string>
+    <string name="main_status_root">Root</string>
+    <string name="main_status_root_ready">Ready</string>
+    <string name="main_status_root_not_available">Not available</string>
     <string name="main_status_battery_whitelist">Battery whitelist</string>
     <string name="main_status_enabled">Enabled</string>
     <string name="main_status_disabled">Disabled</string>
@@ -956,6 +962,7 @@
     <string name="toast_loop_on_smart">Auto translate on (wait for text to remain stable for %1$d ms)</string>
     <string name="toast_capture_failed">Capture failed: no frame. Try restarting capture.</string>
     <string name="toast_shizuku_dry_run_failed">Shizuku capture isn\'t working — likely not paired via ADB. Open the Shizuku app and start it with ADB / wireless debug, or switch to MediaProjection on the main screen.</string>
+    <string name="toast_root_dry_run_failed">Root capture isn\'t working — su may be blocked or not fully granted. Check Magisk / KernelSU authorization, or switch to MediaProjection on the main screen.</string>
     <string name="toast_ocr_failed_format">OCR failed [%1$s]: %2$s</string>
     <string name="toast_ocr_unreliable_result">OCR confidence is too low to detect valid text. Adjust the capture region. If the captured image is blank, black, or blurred, check whether screen-sharing protection is enabled.</string>
 
@@ -994,6 +1001,7 @@
     <string name="log_msg_manga_mask_debug_saved_format">Manga mask diagnostic saved (%1$s); accepted bubbles: %2$d/%3$d</string>
     <string name="log_msg_manga_mask_debug_diagnostics_format">Manga bubble decisions: %1$s</string>
     <string name="log_msg_shizuku_dry_run_failed">Shizuku dry-run failed at service start — likely not paired via ADB. Stopped capture service.</string>
+    <string name="log_msg_root_dry_run_failed">Root dry-run failed at service start — su unavailable or not granted. Stopped capture service.</string>
     <string name="log_msg_ocr_failed_format">OCR failed [%1$s]</string>
     <string name="log_msg_ocr_results_format">Recognized %1$d block(s) [%2$s]: %3$s</string>
     <string name="log_msg_ocr_no_result_format">No text in this frame [%1$s]</string>

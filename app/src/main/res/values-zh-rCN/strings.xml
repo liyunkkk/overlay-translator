@@ -50,6 +50,9 @@
     <string name="main_usage_text">悬浮圆球：单击 = 执行当前操作；长按 = 打开弧形菜单；拖动 = 移动位置</string>
     <string name="main_usage_overlay_permission_required">请点击上方按钮，先授予悬浮窗权限。</string>
     <string name="main_hint_media_projection">每次启动会弹一次系统授权窗</string>
+    <string name="main_hint_root_ready">Root 已就绪：无需授权弹窗</string>
+    <string name="main_hint_root_not_available">未检测到 Root。请先解锁 Bootloader 并安装 Magisk / KernelSU。</string>
+    <string name="main_snack_root_unavailable">Root 不可用。请确保设备已 root（Magisk / KernelSU）并授予 root 权限。</string>
     <string name="main_hint_shizuku_ready">Shizuku 就绪，免每次授权弹窗</string>
     <string name="main_hint_shizuku_not_granted">Shizuku 已安装但未授权，启动时会请求授权</string>
     <string name="main_hint_shizuku_not_running">请先在系统中启动 Shizuku 应用</string>
@@ -71,6 +74,9 @@
     <string name="main_status_shizuku_not_running">服务未运行</string>
     <string name="main_status_shizuku_not_installed">未安装</string>
     <string name="main_status_shizuku_not_paired">未配对（无 shell 特权）</string>
+    <string name="main_status_root">Root</string>
+    <string name="main_status_root_ready">就绪</string>
+    <string name="main_status_root_not_available">不可用</string>
     <string name="main_status_battery_whitelist">电池白名单</string>
     <string name="main_status_enabled">已开</string>
     <string name="main_status_disabled">未开</string>
@@ -955,6 +961,7 @@
     <string name="toast_loop_on_smart">自动翻译已开启（文字稳定 %1$d ms 后触发）</string>
     <string name="toast_capture_failed">截屏失败：未拿到画面，建议重新启动捕获</string>
     <string name="toast_shizuku_dry_run_failed">Shizuku 截屏不可用——大概率没通过 ADB 配对。请打开 Shizuku 应用，用 ADB / 无线调试启动，或在主屏切换到 MediaProjection 启动方式。</string>
+    <string name="toast_root_dry_run_failed">Root 截屏不可用——su 可能被拦截或未完全授权。请检查 Magisk / KernelSU 授权，或在主屏切换到 MediaProjection 启动方式。</string>
     <string name="toast_ocr_failed_format">OCR 失败 [%1$s]：%2$s</string>
     <string name="toast_ocr_unreliable_result">OCR 置信度过低，未识别到有效文字。请调整截取区域；若截屏空白、黑屏或模糊，请检查是否开启了屏幕共享防护。</string>
 
@@ -993,6 +1000,7 @@
     <string name="log_msg_manga_mask_debug_saved_format">漫画蒙版调试图（%1$s）已保存；气泡通过：%2$d/%3$d</string>
     <string name="log_msg_manga_mask_debug_diagnostics_format">漫画气泡判定：%1$s</string>
     <string name="log_msg_shizuku_dry_run_failed">Shizuku dry-run 失败——大概率未通过 ADB 配对。已停止截屏服务。</string>
+    <string name="log_msg_root_dry_run_failed">Root dry-run 失败——su 不可用或未授权。已停止截屏服务。</string>
     <string name="log_msg_ocr_failed_format">OCR 识别失败 [%1$s]</string>
     <string name="log_msg_ocr_results_format">识别到 %1$d 段 [%2$s]: %3$s</string>
     <string name="log_msg_ocr_no_result_format">本帧无识别结果 [%1$s]</string>

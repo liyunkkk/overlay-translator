@@ -120,6 +120,7 @@ import com.gameocr.app.BuildConfig
 import com.gameocr.app.R
 import com.gameocr.app.capture.CaptureRegion
 import com.gameocr.app.capture.MediaProjectionRequestActivity
+import com.gameocr.app.capture.RootCapabilities
 import com.gameocr.app.capture.RegionPickerActivity
 import com.gameocr.app.data.Settings as AppSettings
 import com.gameocr.app.data.SettingsRepository
@@ -173,6 +174,7 @@ fun MainScreen(
     var canDrawOverlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var region by remember { mutableStateOf<CaptureRegion?>(null) }
     var shizukuAvail by remember { mutableStateOf(ShizukuCapabilities.Availability.NOT_INSTALLED) }
+    var rootAvail by remember { mutableStateOf(false) }
     var batteryOk by remember {
         mutableStateOf(RomHelper.isIgnoringBatteryOptimizations(context))
     }
@@ -300,14 +302,17 @@ fun MainScreen(
         AutoUpdateCheckOverlay()
     }
 
-    // Shizuku 就绪时默认选 Shizuku（用户未手动切换过的前提下）。
+    // root / Shizuku 可用时默认选最优路径（用户未手动切换过的前提下）。
     // 进入页面时 shizukuAvail 还在初始 NOT_INSTALLED，等 ON_RESUME 探测完才真实；
     // 这里跟着变化走，确保用户进来直接看到最优选项。
-    LaunchedEffect(shizukuAvail) {
+    LaunchedEffect(shizukuAvail, rootAvail) {
         if (!userOverrodeMode) {
-            startMode = if (shizukuAvail == ShizukuCapabilities.Availability.READY ||
-                shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_GRANTED
-            ) StartMode.SHIZUKU else StartMode.MEDIA_PROJECTION
+            startMode = when {
+                rootAvail -> StartMode.ROOT
+                shizukuAvail == ShizukuCapabilities.Availability.READY ||
+                    shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_GRANTED -> StartMode.SHIZUKU
+                else -> StartMode.MEDIA_PROJECTION
+            }
         }
     }
 
@@ -327,6 +332,7 @@ fun MainScreen(
                     canDrawOverlay = Settings.canDrawOverlays(context)
                     region = viewModel.currentRegion()
                     shizukuAvail = viewModel.shizukuAvailability(context)
+                    rootAvail = viewModel.rootAvailable()
                     batteryOk = RomHelper.isIgnoringBatteryOptimizations(context)
                     if (!batteryOk) {
                         repeat(5) {
@@ -556,6 +562,7 @@ fun MainScreen(
                 canDrawOverlay = canDrawOverlay,
                 region = region,
                 shizukuAvail = shizukuAvail,
+                rootAvail = rootAvail,
                 batteryOk = batteryOk,
                 serviceRunning = serviceRunning,
                 presets = presets,
@@ -614,6 +621,7 @@ fun MainScreen(
                     serviceRunning,
                     startMode,
                     shizukuAvail,
+                    rootAvail,
                 ),
                 galleryMeasurementKey = listOf(
                     canDrawOverlay,
@@ -654,7 +662,11 @@ fun MainScreen(
                             Text("  ${stringResource(R.string.main_action_stop)}", modifier = Modifier.padding(start = 4.dp))
                         }
                     } else {
-                        val modeLabel = if (startMode == StartMode.SHIZUKU) "Shizuku" else "MediaProjection"
+                        val modeLabel = when (startMode) {
+                            StartMode.ROOT -> "Root"
+                            StartMode.SHIZUKU -> "Shizuku"
+                            StartMode.MEDIA_PROJECTION -> "MediaProjection"
+                        }
                         Button(
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             onClick = {
@@ -682,6 +694,24 @@ fun MainScreen(
                                             )
                                         }
                                     }
+                                    StartMode.ROOT -> scope.launch {
+                                        rootAvail = viewModel.rootAvailable()
+                                        if (rootAvail) {
+                                            val svc = Intent(context, CaptureService::class.java).apply {
+                                                action = CaptureService.ACTION_START
+                                                putExtra(CaptureService.EXTRA_USE_ROOT, true)
+                                            }
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                ContextCompat.startForegroundService(context, svc)
+                                            } else {
+                                                context.startService(svc)
+                                            }
+                                        } else {
+                                            snackbarHostState.showSnackbar(
+                                                context.getString(R.string.main_snack_root_unavailable)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         ) {
@@ -693,7 +723,7 @@ fun MainScreen(
                         }
                     }
 
-                    // 启动方式 tabs：服务运行中禁止切换；Shizuku 不可用时该项禁用
+                    // 启动方式 tabs：服务运行中禁止切换；Shizuku / Root 不可用时对应项禁用
                     Text(
                         stringResource(R.string.main_label_start_mode),
                         style = MaterialTheme.typography.labelLarge,
@@ -707,7 +737,7 @@ fun MainScreen(
                                 userOverrodeMode = true
                             },
                             enabled = !serviceRunning,
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                             label = { Text("MediaProjection") }
                         )
                         SegmentedButton(
@@ -717,12 +747,25 @@ fun MainScreen(
                                 userOverrodeMode = true
                             },
                             enabled = !serviceRunning && shizukuUsable,
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                             label = { Text("Shizuku") }
+                        )
+                        SegmentedButton(
+                            selected = startMode == StartMode.ROOT,
+                            onClick = {
+                                startMode = StartMode.ROOT
+                                userOverrodeMode = true
+                            },
+                            enabled = !serviceRunning && rootAvail,
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                            label = { Text("Root") }
                         )
                     }
                     val hintRes = when {
                         startMode == StartMode.MEDIA_PROJECTION -> R.string.main_hint_media_projection
+                        startMode == StartMode.ROOT ->
+                            if (rootAvail) R.string.main_hint_root_ready
+                            else R.string.main_hint_root_not_available
                         shizukuAvail == ShizukuCapabilities.Availability.READY -> R.string.main_hint_shizuku_ready
                         shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_GRANTED -> R.string.main_hint_shizuku_not_granted
                         shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_PAIRED -> R.string.main_hint_shizuku_not_paired
@@ -1722,6 +1765,7 @@ private fun StatusPresetCarousel(
     canDrawOverlay: Boolean,
     region: CaptureRegion?,
     shizukuAvail: ShizukuCapabilities.Availability,
+    rootAvail: Boolean,
     batteryOk: Boolean,
     serviceRunning: Boolean,
     presets: List<TranslationPreset>,
@@ -1813,6 +1857,7 @@ private fun StatusPresetCarousel(
                     canDrawOverlay = canDrawOverlay,
                     region = region,
                     shizukuAvail = shizukuAvail,
+                    rootAvail = rootAvail,
                     batteryOk = batteryOk,
                     serviceRunning = serviceRunning,
                     modifier = Modifier.fillMaxSize(),
@@ -1895,6 +1940,7 @@ private fun StatusCard(
     canDrawOverlay: Boolean,
     region: CaptureRegion?,
     shizukuAvail: ShizukuCapabilities.Availability,
+    rootAvail: Boolean,
     batteryOk: Boolean,
     serviceRunning: Boolean,
     modifier: Modifier = Modifier,
@@ -1941,6 +1987,14 @@ private fun StatusCard(
                         ShizukuCapabilities.Availability.NOT_RUNNING -> R.string.main_status_shizuku_not_running
                         ShizukuCapabilities.Availability.NOT_INSTALLED -> R.string.main_status_shizuku_not_installed
                     }
+                )
+            )
+            StatusRow(
+                stringResource(R.string.main_status_root),
+                ok = rootAvail,
+                detail = stringResource(
+                    if (rootAvail) R.string.main_status_root_ready
+                    else R.string.main_status_root_not_available
                 )
             )
             StatusRow(stringResource(R.string.main_status_battery_whitelist), batteryOk)
@@ -2489,7 +2543,7 @@ private fun AutoUpdateCheckOverlay() {
 
 private val MainScreenHorizontalPadding = 16.dp
 
-private enum class StartMode { MEDIA_PROJECTION, SHIZUKU }
+private enum class StartMode { MEDIA_PROJECTION, SHIZUKU, ROOT }
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -2533,6 +2587,10 @@ class MainViewModel @Inject constructor(
     fun shizukuAvailability(context: android.content.Context): ShizukuCapabilities.Availability =
         shizukuCapabilities.availability(context)
     suspend fun ensureShizukuReady(): Boolean = shizukuManager.ensureReady()
+    /** root 可用性（轻量探测 su 二进制，不真正执行授权）。 */
+    suspend fun rootAvailable(): Boolean = withContext(Dispatchers.IO) {
+        RootCapabilities.hasSuBinary()
+    }
     internal suspend fun presetModelIssues(
         presets: List<TranslationPreset>,
     ): Map<String, List<TranslationPresetModelIssue>> = withContext(Dispatchers.IO) {

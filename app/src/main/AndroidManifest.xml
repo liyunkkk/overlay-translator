@@ -113,7 +113,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 截屏前台服务：mediaProjection 用于默认截屏；specialUse 用于 Shizuku 路径 -->
+        <!-- 截屏前台服务：mediaProjection 用于默认截屏；specialUse 用于 Shizuku / root 路径 -->
         <!-- configChanges 必须包含 orientation+screenSize+screenLayout+smallestScreenSize：
              旋转屏幕时由 Service 自己接 onConfigurationChanged，按比例重算悬浮窗位置 +
              updateViewLayout。否则旋转后悬浮窗位置会废（竖屏 y=200 横屏可能落到状态栏后）。 -->
@@ -124,7 +124,7 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Shizuku-based on-demand screen capture for OCR translation" />
+                android:value="Shizuku/root-based on-demand screen capture for OCR translation" />
         </service>
 
         <service
