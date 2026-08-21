@@ -5,7 +5,8 @@ import android.graphics.BitmapFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.ByteArrayOutputStream
+import java.io.BufferedInputStream
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 class RootScreenshotter : Screenshotter {
@@ -16,22 +17,23 @@ class RootScreenshotter : Screenshotter {
 
     override suspend fun capture(): Bitmap? = withContext(Dispatchers.IO) {
         if (!isReady) return@withContext null
+        var process: Process? = null
         try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "screencap -p"))
-            val baos = ByteArrayOutputStream()
-            process.inputStream.use { input ->
-                input.copyTo(baos)
+            process = ProcessBuilder("su", "-c", "screencap -p")
+                .redirectErrorStream(false)
+                .start()
+            val bitmap = BufferedInputStream(process.inputStream, 65536).use { bis ->
+                BitmapFactory.decodeStream(bis)
             }
-            process.waitFor()
-            val bytes = baos.toByteArray()
-            if (bytes.isNotEmpty()) {
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            } else {
-                null
-            }
+            process.waitFor(3, TimeUnit.SECONDS)
+            bitmap
         } catch (t: Throwable) {
-            Timber.w(t, "[root-cap] capture threw")
+            Timber.w(t, "[root-cap] capture failed")
             null
+        } finally {
+            try {
+                process?.destroy()
+            } catch (_: Throwable) {}
         }
     }
 

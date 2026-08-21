@@ -309,60 +309,22 @@ class CaptureService : Service() {
         // 用户重复点"启动"按钮、或者切换 Shizuku ↔ MediaProjection 路径都走这条。
         cleanupCapture()
 
-        // 先判断要走的截屏路径：Root -> Shizuku -> MediaProjection
-        val useRoot = intent.getBooleanExtra(EXTRA_USE_ROOT, false) && rootCapabilities.isRootReady(this)
-        val useShizuku = intent.getBooleanExtra(EXTRA_USE_SHIZUKU, false) &&
-            shizukuCapabilities.availability(this) == ShizukuCapabilities.Availability.READY
-        val isPrivileged = useRoot || useShizuku
-
-        // 前台服务：Android 14+ 必须显式传非零 type，否则 InvalidForegroundServiceTypeException。
-        // MediaProjection 路径走 MEDIA_PROJECTION；特权路径 (Root/Shizuku) 走 SPECIAL_USE。
-        val fgType = when {
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> 0
-            isPrivileged -> android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            else -> android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        // 先判断要走的截屏路径：仅使用 Root 截屏
+        val fgType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        } else {
+            0
         }
-        // Android 14+ HyperOS/MIUI 上常见 race：MediaProjectionRequestActivity onActivityResult
-        // 收到 RESULT_OK 后立即 startForegroundService，此时 `android:project_media` app-op
-        // grant 尚未异步落地，startForeground 抛 SecurityException 闪退。
-        // workaround：捕获异常后 postDelayed 重试一次，给 op 200ms 落地时间；仍失败再 stopSelf。
         if (!startForegroundCompat(fgType, intent)) {
             return
         }
 
-        if (useRoot) {
-            screenshotter = RootScreenshotter()
-            Timber.i("CaptureService started with Root path")
-        } else if (useShizuku) {
-            screenshotter = ShizukuScreenshotter()
-            Timber.i("CaptureService started with Shizuku path")
-        } else {
-            val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
-            val data = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
-            } else {
-                @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_RESULT_DATA)
-            }
-            if (data == null) {
-                Timber.w("MediaProjection result data is null")
-                stopSelf()
-                return
-            }
-            val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-            projection = mpm.getMediaProjection(resultCode, data)
-            val mp = projection
-            if (mp == null) {
-                Timber.w("getMediaProjection returned null")
-                stopSelf()
-                return
-            }
-            screenshotter = MediaProjectionScreenshotter(this, mp)
-            Timber.i("CaptureService started with MediaProjection path")
-        }
+        screenshotter = RootScreenshotter()
+        Timber.i("CaptureService started with Root path")
 
         VerticalDiagnosticLog.i(
             "service capture path=${screenshotter?.javaClass?.simpleName ?: "null"} " +
-                "display=${currentDisplayGeometry().toDiagString()} projection=${projectionDiagnosticSummary()}"
+                "display=${currentDisplayGeometry().toDiagString()}"
         )
 
         overlay = OverlayManager(
@@ -449,33 +411,6 @@ class CaptureService : Service() {
         CaptureServiceState.setRunning(true)
         startOcrWarmupIfNeeded()
         startLocalLlmWarmupIfNeeded()
-
-        // Shizuku 路径 dry-run：即使 availability == READY，未通过 ADB / root 配对的 Shizuku 也会
-        // 让 newProcess(screencap) 失败（exit=1）。立刻跑一次截屏，失败则用悬浮错误条引导用户改
-        // 用 MediaProjection 并 stopSelf——比让他看到通用「截屏失败」反复试错好。
-        if (useShizuku) {
-            scope.launch {
-                val shotter = screenshotter ?: return@launch
-                val test = shotter.capture()
-                if (test == null) {
-                    Timber.w("Shizuku dry-run failed; stopping service")
-                    logRepository.error(
-                        LogRepository.Category.CAPTURE,
-                        getString(R.string.log_msg_shizuku_dry_run_failed)
-                    )
-                    mainScope.launch {
-                        overlay?.showErrorHint(
-                            getString(R.string.toast_shizuku_dry_run_failed),
-                            durationMs = 8000L
-                        )
-                    }
-                    kotlinx.coroutines.delay(8500L)
-                    stopSelf()
-                } else {
-                    test.recycle()
-                }
-            }
-        }
     }
 
     private fun startOcrWarmupIfNeeded() {
@@ -497,6 +432,10 @@ class CaptureService : Service() {
     }
 
     private fun startLocalLlmWarmupIfNeeded() {
+        val settings = settingsRepository.get()
+        if (!settings.translatorEngine.name.startsWith("LOCAL_")) {
+            return
+        }
         localLlmWarmupJob?.cancel()
         localLlmWarmupJob = scope.launch {
             // Avoid running two large cold-start inference workloads against each other. If Manga
@@ -507,7 +446,6 @@ class CaptureService : Service() {
                 Timber.tag("LocalLlmPerf").i("prewarm skipped decision=SKIP_ROUTER_UNAVAILABLE")
                 return@launch
             }
-            val settings = settingsRepository.get()
             val startedAt = SystemClock.elapsedRealtime()
             runCatching { routing.prewarmLocalModel(settings) }
                 .onSuccess { result ->
