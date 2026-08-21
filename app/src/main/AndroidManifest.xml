@@ -80,13 +80,19 @@
             </intent-filter>
         </activity>
 
-        <!-- 透明 Activity：用于接 MediaProjection 系统授权回调 -->
+        <!-- 快捷手势/外部快捷入口：一键免弹窗启动/停止 Root 实时翻译 -->
         <activity
             android:name=".capture.MediaProjectionRequestActivity"
-            android:exported="false"
+            android:exported="true"
+            android:label="一键开关实时翻译 (Root)"
             android:theme="@style/Theme.GameOcr.Transparent"
             android:excludeFromRecents="true"
-            android:noHistory="true" />
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- 区域选择 Activity：全屏拉框 -->
         <activity

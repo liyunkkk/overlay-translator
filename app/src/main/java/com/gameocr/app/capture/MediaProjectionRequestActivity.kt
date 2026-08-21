@@ -1,52 +1,48 @@
 package com.gameocr.app.capture
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.gameocr.app.service.CaptureService
+import com.gameocr.app.service.CaptureServiceState
 import timber.log.Timber
 
 /**
- * 透明 Activity，仅用于拉起系统 MediaProjection 授权弹窗。
- * 拿到 token 后启动 [CaptureService]（必须先以 mediaProjection 类型启动前台服务，
- * 然后服务内部用 token 拿 MediaProjection 实例）。
+ * 快捷手势 / 外部快捷方式 Activity：一键切换/启动 Root 实时翻译前台服务。
+ * 0 弹窗、无 UI、执行后立即 finish 退出。
  */
 class MediaProjectionRequestActivity : ComponentActivity() {
 
-    private val mpm by lazy {
-        getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        toggleOrStartService()
+        finish()
     }
 
-    private val launcher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-            Timber.i("MediaProjection granted")
+    private fun toggleOrStartService() {
+        val isRunning = CaptureServiceState.running.value
+        if (isRunning) {
+            Timber.i("QuickToggle: Stopping CaptureService")
+            val stopIntent = CaptureService.stopIntent(this)
+            startService(stopIntent)
+            Toast.makeText(this, "屏译：已停止实时翻译", Toast.LENGTH_SHORT).show()
+        } else {
+            Timber.i("QuickToggle: Starting CaptureService in Root mode")
             val svc = Intent(this, CaptureService::class.java).apply {
                 action = CaptureService.ACTION_START
-                putExtra(CaptureService.EXTRA_RESULT_CODE, result.resultCode)
-                putExtra(CaptureService.EXTRA_RESULT_DATA, result.data)
+                putExtra(CaptureService.EXTRA_USE_ROOT, true)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 ContextCompat.startForegroundService(this, svc)
             } else {
                 startService(svc)
             }
-        } else {
-            Timber.w("MediaProjection denied")
+            Toast.makeText(this, "屏译：已启动 Root 实时翻译", Toast.LENGTH_SHORT).show()
         }
-        finish()
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        launcher.launch(mpm.createScreenCaptureIntent())
     }
 
     companion object {
