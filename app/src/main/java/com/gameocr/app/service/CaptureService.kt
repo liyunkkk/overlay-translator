@@ -49,6 +49,7 @@ import com.gameocr.app.capture.MediaProjectionScreenshotter
 import com.gameocr.app.capture.OverlayCaptureRect
 import com.gameocr.app.capture.Screenshotter
 import com.gameocr.app.capture.ShizukuScreenshotter
+import com.gameocr.app.capture.RootScreenshotter
 import com.gameocr.app.capture.diagnoseCaptureGeometry
 import com.gameocr.app.capture.floatingWindowCaptureAction
 import com.gameocr.app.capture.mapOverlayBoundsToCapture
