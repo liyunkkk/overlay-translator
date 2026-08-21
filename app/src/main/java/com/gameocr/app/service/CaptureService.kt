@@ -457,7 +457,12 @@ class CaptureService : Service() {
                 }
                 .onFailure { error ->
                     if (error is CancellationException) throw error
-                    Timber.tag("LocalLlmPerf").w(error, "prewarm failed kind=%s", routing.currentLocalModelKind(settings) ?: "none")
+                    Timber.tag("LocalLlmPerf").w(
+                        error,
+                        "prewarm failed engine=%s totalMs=%d",
+                        settings.translatorEngine.name,
+                        InferenceTiming.elapsedMs(startedAt, SystemClock.elapsedRealtime()),
+                    )
                 }
         }
     }
