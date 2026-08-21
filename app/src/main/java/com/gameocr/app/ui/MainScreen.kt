@@ -654,7 +654,11 @@ fun MainScreen(
                             Text("  ${stringResource(R.string.main_action_stop)}", modifier = Modifier.padding(start = 4.dp))
                         }
                     } else {
-                        val modeLabel = if (startMode == StartMode.SHIZUKU) "Shizuku" else "MediaProjection"
+                        val modeLabel = when (startMode) {
+                            StartMode.SHIZUKU -> "Shizuku"
+                            StartMode.ROOT -> "Root"
+                            else -> "MediaProjection"
+                        }
                         Button(
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             onClick = {
@@ -682,6 +686,17 @@ fun MainScreen(
                                             )
                                         }
                                     }
+                                    StartMode.ROOT -> {
+                                        val svc = Intent(context, CaptureService::class.java).apply {
+                                            action = CaptureService.ACTION_START
+                                            putExtra(CaptureService.EXTRA_USE_ROOT, true)
+                                        }
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                            ContextCompat.startForegroundService(context, svc)
+                                        } else {
+                                            context.startService(svc)
+                                        }
+                                    }
                                 }
                             }
                         ) {
@@ -707,7 +722,7 @@ fun MainScreen(
                                 userOverrodeMode = true
                             },
                             enabled = !serviceRunning,
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3),
                             label = { Text("MediaProjection") }
                         )
                         SegmentedButton(
@@ -717,11 +732,22 @@ fun MainScreen(
                                 userOverrodeMode = true
                             },
                             enabled = !serviceRunning && shizukuUsable,
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3),
                             label = { Text("Shizuku") }
+                        )
+                        SegmentedButton(
+                            selected = startMode == StartMode.ROOT,
+                            onClick = {
+                                startMode = StartMode.ROOT
+                                userOverrodeMode = true
+                            },
+                            enabled = !serviceRunning,
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3),
+                            label = { Text("Root") }
                         )
                     }
                     val hintRes = when {
+                        startMode == StartMode.ROOT -> R.string.main_hint_media_projection
                         startMode == StartMode.MEDIA_PROJECTION -> R.string.main_hint_media_projection
                         shizukuAvail == ShizukuCapabilities.Availability.READY -> R.string.main_hint_shizuku_ready
                         shizukuAvail == ShizukuCapabilities.Availability.INSTALLED_NOT_GRANTED -> R.string.main_hint_shizuku_not_granted
@@ -2489,7 +2515,7 @@ private fun AutoUpdateCheckOverlay() {
 
 private val MainScreenHorizontalPadding = 16.dp
 
-private enum class StartMode { MEDIA_PROJECTION, SHIZUKU }
+private enum class StartMode { MEDIA_PROJECTION, SHIZUKU, ROOT }
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
