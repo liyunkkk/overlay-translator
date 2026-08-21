@@ -430,14 +430,13 @@ class CaptureService : Service() {
                 .onFailure { Timber.w(it, "MangaOcr background prewarm failed") }
         }
     }
-
     private fun startLocalLlmWarmupIfNeeded() {
-        val settings = settingsRepository.get()
-        if (!settings.translatorEngine.name.startsWith("LOCAL_")) {
-            return
-        }
         localLlmWarmupJob?.cancel()
         localLlmWarmupJob = scope.launch {
+            val settings = settingsRepository.get()
+            if (!settings.translatorEngine.name.startsWith("LOCAL_")) {
+                return@launch
+            }
             // Avoid running two large cold-start inference workloads against each other. If Manga
             // OCR is selected, let its short real-inference warmup finish before loading the LLM.
             ocrWarmupJob?.join()
@@ -458,12 +457,7 @@ class CaptureService : Service() {
                 }
                 .onFailure { error ->
                     if (error is CancellationException) throw error
-                    Timber.tag("LocalLlmPerf").w(
-                        error,
-                        "prewarm failed engine=%s totalMs=%d",
-                        settings.translatorEngine.name,
-                        InferenceTiming.elapsedMs(startedAt, SystemClock.elapsedRealtime()),
-                    )
+                    Timber.tag("LocalLlmPerf").w(error, "prewarm failed kind=%s", routing.currentLocalModelKind(settings) ?: "none")
                 }
         }
     }

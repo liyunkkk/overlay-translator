@@ -645,7 +645,7 @@ fun MainScreen(
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Text(
-                                "  ${stringResource(R.string.main_action_start)} (Root)",
+                                "启动实时翻译 (Root)",
                                 modifier = Modifier.padding(start = 4.dp)
                             )
                         }
@@ -1643,7 +1643,7 @@ private fun StatusPresetCarousel(
     onPageChanged: (Int) -> Unit,
     canDrawOverlay: Boolean,
     region: CaptureRegion?,
-    shizukuAvail: ShizukuCapabilities.Availability,
+    rootOk: Boolean,
     batteryOk: Boolean,
     serviceRunning: Boolean,
     presets: List<TranslationPreset>,
