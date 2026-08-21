@@ -211,6 +211,8 @@ class CaptureService : Service() {
     @Inject lateinit var ocrEngine: OcrEngine
     @Inject lateinit var translator: Translator
     @Inject lateinit var shizukuCapabilities: ShizukuCapabilities
+    @Inject lateinit var rootManager: com.gameocr.app.root.RootManager
+    @Inject lateinit var rootCapabilities: com.gameocr.app.root.RootCapabilities
     @Inject lateinit var logRepository: LogRepository
     // 端侧 LLM 翻译共享层。设置里切走 LOCAL_* 引擎或 Service 销毁时主动 unload 释放 ~500 MB 内存。
     @Inject lateinit var llamaEngineHolder: com.gameocr.app.llm.LlamaEngineHolder
@@ -306,15 +308,17 @@ class CaptureService : Service() {
         // 用户重复点"启动"按钮、或者切换 Shizuku ↔ MediaProjection 路径都走这条。
         cleanupCapture()
 
-        // 先判断要走的截屏路径：用户启用 Shizuku 且就绪 → Shizuku；否则 → MediaProjection
+        // 先判断要走的截屏路径：Root -> Shizuku -> MediaProjection
+        val useRoot = intent.getBooleanExtra(EXTRA_USE_ROOT, false) && rootCapabilities.isRootReady(this)
         val useShizuku = intent.getBooleanExtra(EXTRA_USE_SHIZUKU, false) &&
             shizukuCapabilities.availability(this) == ShizukuCapabilities.Availability.READY
+        val isPrivileged = useRoot || useShizuku
 
         // 前台服务：Android 14+ 必须显式传非零 type，否则 InvalidForegroundServiceTypeException。
-        // MediaProjection 路径走 MEDIA_PROJECTION；Shizuku 路径走 SPECIAL_USE。
+        // MediaProjection 路径走 MEDIA_PROJECTION；特权路径 (Root/Shizuku) 走 SPECIAL_USE。
         val fgType = when {
             Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> 0
-            useShizuku -> android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            isPrivileged -> android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             else -> android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         }
         // Android 14+ HyperOS/MIUI 上常见 race：MediaProjectionRequestActivity onActivityResult
@@ -325,7 +329,10 @@ class CaptureService : Service() {
             return
         }
 
-        if (useShizuku) {
+        if (useRoot) {
+            screenshotter = RootScreenshotter()
+            Timber.i("CaptureService started with Root path")
+        } else if (useShizuku) {
             screenshotter = ShizukuScreenshotter()
             Timber.i("CaptureService started with Shizuku path")
         } else {
@@ -4387,6 +4394,7 @@ class CaptureService : Service() {
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_RESULT_DATA = "extra_result_data"
         const val EXTRA_USE_SHIZUKU = "extra_use_shizuku"
+        const val EXTRA_USE_ROOT = "extra_use_root"
         private const val CAPTURE_CHROME_SETTLE_MS = 80L
 
         fun stopIntent(context: Context): Intent =
