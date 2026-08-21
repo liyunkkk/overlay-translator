@@ -1,6 +1,8 @@
 package com.gameocr.app.ui
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -641,6 +643,7 @@ fun MainScreen(
                                 } else {
                                     context.startService(svc)
                                 }
+                                context.findActivity()?.finishAndRemoveTask()
                             }
                         ) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -2515,4 +2518,13 @@ class MainViewModel @Inject constructor(
     val shizukuBinderAlive: kotlinx.coroutines.flow.StateFlow<Boolean> = shizukuManager.binderAlive
     /** Shizuku 是否拿到了 shell 特权（已配对）。binder 通但未配对时为 false。 */
     val shizukuShellPrivilegeOk: kotlinx.coroutines.flow.StateFlow<Boolean> = shizukuManager.shellPrivilegeOk
+}
+
+internal fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
 }
